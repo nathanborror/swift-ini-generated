@@ -6,6 +6,7 @@ A Swift library for decoding and encoding INI configuration files with full supp
 
 - ✅ **Simple API**: Easy-to-use encoder and decoder
 - ✅ **Global and Named Sections**: Support for properties before any section and in named sections
+- ✅ **Section Prefix Matching**: Retrieve all sections matching a prefix (great for git-style configs)
 - ✅ **Comments**: Support for both `;` and `#` comment styles
 - ✅ **Quoted Values**: Handle quoted strings with escape sequences
 - ✅ **Flexible Separators**: Support for both `=` and `:` as key-value separators
@@ -109,6 +110,50 @@ for (name, section) in ini.allSections {
 if let section = ini["server"] {
     print("Server section has \(section.count) properties")
 }
+
+// Get all sections with a matching prefix
+let remoteSections = ini.sections(withPrefix: "remote.")
+for (name, section) in remoteSections {
+    print("Section: \(name)")
+    for (key, value) in section.items {
+        print("  \(key) = \(value)")
+    }
+}
+```
+
+### Working with Section Prefixes
+
+Retrieve all sections that share a common prefix (useful for git-style configs):
+
+```swift
+let gitConfig = """
+[core]
+repositoryformatversion = 0
+
+[remote "origin"]
+url = https://github.com/user/repo1.git
+
+[remote "upstream"]
+url = https://github.com/user/repo2.git
+
+[branch "main"]
+remote = origin
+"""
+
+let ini = try INI(string: gitConfig)
+
+// Get all remote sections
+let remotes = ini.sections(withPrefix: "remote ")
+for (name, section) in remotes {
+    print("\(name): \(section["url"] ?? "")")
+}
+// Output:
+// remote "origin": https://github.com/user/repo1.git
+// remote "upstream": https://github.com/user/repo2.git
+
+// Get all branch sections
+let branches = ini.sections(withPrefix: "branch ")
+print("Found \(branches.count) branches")
 ```
 
 ### Dictionary Literal Initialization

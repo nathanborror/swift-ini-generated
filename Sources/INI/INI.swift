@@ -90,6 +90,16 @@ public struct INI: Equatable, Sendable {
         sections.sorted { $0.key < $1.key }.map { (name: $0.key, section: $0.value) }
     }
 
+    /// Get all sections with a matching prefix
+    /// - Parameter prefix: The prefix to match section names against
+    /// - Returns: Array of tuples containing section names and their sections, sorted alphabetically
+    public func sections(withPrefix prefix: String) -> [(name: String, section: Section)] {
+        sections
+            .filter { $0.key.hasPrefix(prefix) && !$0.key.isEmpty }
+            .sorted { $0.key < $1.key }
+            .map { (name: $0.key, section: $0.value) }
+    }
+
     /// Check if INI is empty
     public var isEmpty: Bool {
         sections.isEmpty || sections.values.allSatisfy { $0.isEmpty }

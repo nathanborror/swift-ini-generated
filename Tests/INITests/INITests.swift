@@ -554,3 +554,127 @@ import Testing
 
     #expect(ini == decoded)
 }
+
+// MARK: - Section Prefix Tests
+
+@Test func sectionsWithPrefixNoMatches() {
+    var ini = INI()
+    ini["section1", "key1"] = "value1"
+    ini["section2", "key2"] = "value2"
+    ini["other", "key3"] = "value3"
+
+    let matches = ini.sections(withPrefix: "prefix")
+
+    #expect(matches.isEmpty)
+}
+
+@Test func sectionsWithPrefixSomeMatches() {
+    var ini = INI()
+    ini["remote.origin", "url"] = "https://github.com/user/repo1.git"
+    ini["remote.upstream", "url"] = "https://github.com/user/repo2.git"
+    ini["branch.main", "remote"] = "origin"
+    ini["core", "filemode"] = "true"
+
+    let matches = ini.sections(withPrefix: "remote.")
+
+    #expect(matches.count == 2)
+    #expect(matches[0].name == "remote.origin")
+    #expect(matches[0].section["url"] == "https://github.com/user/repo1.git")
+    #expect(matches[1].name == "remote.upstream")
+    #expect(matches[1].section["url"] == "https://github.com/user/repo2.git")
+}
+
+@Test func sectionsWithPrefixAllMatch() {
+    var ini = INI()
+    ini["prefix1", "key1"] = "value1"
+    ini["prefix2", "key2"] = "value2"
+    ini["prefix3", "key3"] = "value3"
+
+    let matches = ini.sections(withPrefix: "prefix")
+
+    #expect(matches.count == 3)
+    #expect(matches[0].name == "prefix1")
+    #expect(matches[1].name == "prefix2")
+    #expect(matches[2].name == "prefix3")
+}
+
+@Test func sectionsWithPrefixSorted() {
+    var ini = INI()
+    ini["remote.zebra", "key"] = "value"
+    ini["remote.alpha", "key"] = "value"
+    ini["remote.beta", "key"] = "value"
+
+    let matches = ini.sections(withPrefix: "remote.")
+
+    #expect(matches.count == 3)
+    #expect(matches[0].name == "remote.alpha")
+    #expect(matches[1].name == "remote.beta")
+    #expect(matches[2].name == "remote.zebra")
+}
+
+@Test func sectionsWithPrefixExcludesGlobal() {
+    var ini = INI()
+    ini.global["key"] = "value"
+    ini["section", "key"] = "value"
+
+    // Empty prefix should not match global section
+    let matches = ini.sections(withPrefix: "")
+
+    #expect(matches.count == 1)
+    #expect(matches[0].name == "section")
+}
+
+@Test func sectionsWithPrefixEmptyINI() {
+    let ini = INI()
+
+    let matches = ini.sections(withPrefix: "any")
+
+    #expect(matches.isEmpty)
+}
+
+@Test func sectionsWithPrefixGitConfigStyle() throws {
+    let iniString = """
+        [core]
+        repositoryformatversion = 0
+
+        [remote "origin"]
+        url = https://github.com/user/repo1.git
+        fetch = +refs/heads/*:refs/remotes/origin/*
+
+        [remote "upstream"]
+        url = https://github.com/user/repo2.git
+
+        [branch "main"]
+        remote = origin
+        merge = refs/heads/main
+
+        [branch "develop"]
+        remote = origin
+        merge = refs/heads/develop
+        """
+
+    let ini = try INI(string: iniString)
+
+    let remotes = ini.sections(withPrefix: "remote ")
+    #expect(remotes.count == 2)
+    #expect(remotes[0].name == "remote \"origin\"")
+    #expect(remotes[1].name == "remote \"upstream\"")
+
+    let branches = ini.sections(withPrefix: "branch ")
+    #expect(branches.count == 2)
+    #expect(branches[0].name == "branch \"develop\"")
+    #expect(branches[1].name == "branch \"main\"")
+}
+
+@Test func sectionsWithPrefixExactMatch() {
+    var ini = INI()
+    ini["prefix", "key1"] = "value1"
+    ini["prefix.sub", "key2"] = "value2"
+
+    // Should match both (exact match is also a prefix match)
+    let matches = ini.sections(withPrefix: "prefix")
+
+    #expect(matches.count == 2)
+    #expect(matches[0].name == "prefix")
+    #expect(matches[1].name == "prefix.sub")
+}
