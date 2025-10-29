@@ -6,6 +6,7 @@ A Swift library for decoding and encoding INI configuration files with full supp
 
 - ✅ **Simple API**: Easy-to-use encoder and decoder
 - ✅ **Global and Named Sections**: Support for properties before any section and in named sections
+- ✅ **Array Sections**: Sections with just lists of items (no key=value pairs)
 - ✅ **Section Prefix Matching**: Retrieve all sections matching a prefix (great for git-style configs)
 - ✅ **Comments**: Support for both `;` and `#` comment styles
 - ✅ **Quoted Values**: Handle quoted strings with escape sequences
@@ -119,6 +120,69 @@ for (name, section) in remoteSections {
         print("  \(key) = \(value)")
     }
 }
+```
+
+### Working with Array Sections
+
+Sections can contain just a list of items without key-value pairs:
+
+```swift
+let config = """
+[database]
+host = localhost
+port = 5432
+
+[allowed_ips]
+192.168.1.1
+192.168.1.2
+192.168.1.3
+
+[allowed_origins]
+https://example.com
+https://test.com
+"""
+
+let ini = try INI(string: config)
+
+// Check if a section is an array
+if let ipsSection = ini["allowed_ips"], ipsSection.isArray {
+    print("Allowed IPs:")
+    for ip in ipsSection.array {
+        print("  - \(ip)")
+    }
+}
+
+// Access key-value sections normally
+print("Database host: \(ini["database", "host"] ?? "N/A")")
+
+// Create array sections programmatically
+var newINI = INI()
+newINI["servers"] = INI.Section(["server1.com", "server2.com", "server3.com"])
+
+// Convert between section types
+var section = INI.Section(["key": "value"])
+section.array = ["item1", "item2"]  // Now it's an array section
+section["newKey"] = "value"  // Now it's back to key-value
+```
+
+**How Array Sections Work:**
+
+- Lines without `=` or `:` separators are treated as array items
+- Comments are still supported (`;` and `#` preceded by whitespace are stripped)
+- URLs like `https://example.com` are automatically detected as array items, not key-value pairs
+- Use `section.isArray` to check if a section is an array
+- Use `section.array` to access items as an array
+
+**Disabling Array Sections:**
+
+If you want the old behavior where lines without separators are treated as keys with empty values:
+
+```swift
+var options = INIDecoder.Options()
+options.allowArraySections = false
+options.allowKeysWithoutValues = true
+
+let ini = try INI(string: configString, options: options)
 ```
 
 ### Working with Section Prefixes
@@ -236,6 +300,7 @@ let ini = try decoder.decode(iniString)
 | `parseQuotedValues` | `Bool` | `true` | Parse quoted values and escape sequences |
 | `allowKeysWithoutValues` | `Bool` | `true` | Allow keys without values (empty string) |
 | `separatorCharacters` | `Set<Character>` | `["=", ":"]` | Key-value separator characters |
+| `allowArraySections` | `Bool` | `true` | Allow array-style sections with just items |
 
 ## Encoding Options
 

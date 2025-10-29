@@ -149,6 +149,15 @@ public struct INIEncoder {
         let nl = options.lineEnding.rawValue
         var result = ""
 
+        // Handle array-style sections
+        if section.isArray {
+            for item in section.array {
+                result += "\(item)" + nl
+            }
+            return result
+        }
+
+        // Handle key-value sections
         let items = options.sortKeys ? section.items : Array(section.items)
 
         for item in items {

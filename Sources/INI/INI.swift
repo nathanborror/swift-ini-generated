@@ -11,19 +11,46 @@ public struct INI: Equatable, Sendable {
     /// Represents a section in an INI file
     public struct Section: Equatable, Sendable {
         private var properties: [String: String]
+        private var listItems: [String]?
 
         public init() {
             self.properties = [:]
+            self.listItems = nil
         }
 
         public init(_ properties: [String: String]) {
             self.properties = properties
+            self.listItems = nil
+        }
+
+        public init(_ items: [String]) {
+            self.properties = [:]
+            self.listItems = items
+        }
+
+        /// Check if this section is an array (list of items)
+        public var isArray: Bool {
+            listItems != nil
+        }
+
+        /// Get or set array items (for list-style sections)
+        public var array: [String] {
+            get { listItems ?? [] }
+            set {
+                listItems = newValue
+                properties = [:]
+            }
         }
 
         /// Get or set a value for a key
         public subscript(key: String) -> String? {
             get { properties[key] }
-            set { properties[key] = newValue }
+            set {
+                properties[key] = newValue
+                if newValue != nil {
+                    listItems = nil  // Setting a key-value converts to dictionary mode
+                }
+            }
         }
 
         /// All keys in this section
@@ -38,12 +65,18 @@ public struct INI: Equatable, Sendable {
 
         /// Check if section is empty
         public var isEmpty: Bool {
-            properties.isEmpty
+            if let items = listItems {
+                return items.isEmpty
+            }
+            return properties.isEmpty
         }
 
-        /// Count of properties in this section
+        /// Count of properties or items in this section
         public var count: Int {
-            properties.count
+            if let items = listItems {
+                return items.count
+            }
+            return properties.count
         }
     }
 
@@ -126,8 +159,14 @@ extension INI: CustomStringConvertible {
 
         // Global section first
         if let global = sections[""], !global.isEmpty {
-            for (key, value) in global.items {
-                result += "\(key) = \(value)\n"
+            if global.isArray {
+                for item in global.array {
+                    result += "\(item)\n"
+                }
+            } else {
+                for (key, value) in global.items {
+                    result += "\(key) = \(value)\n"
+                }
             }
             result += "\n"
         }
@@ -136,8 +175,14 @@ extension INI: CustomStringConvertible {
         for name in sectionNames {
             guard let section = sections[name] else { continue }
             result += "[\(name)]\n"
-            for (key, value) in section.items {
-                result += "\(key) = \(value)\n"
+            if section.isArray {
+                for item in section.array {
+                    result += "\(item)\n"
+                }
+            } else {
+                for (key, value) in section.items {
+                    result += "\(key) = \(value)\n"
+                }
             }
             result += "\n"
         }

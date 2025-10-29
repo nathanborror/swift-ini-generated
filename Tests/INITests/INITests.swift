@@ -157,7 +157,11 @@ import Testing
         key2 = value2
         """
 
-    let ini = try INI(string: iniString)
+    var options = INIDecoder.Options()
+    options.allowArraySections = false
+    options.allowKeysWithoutValues = true
+
+    let ini = try INI(string: iniString, options: options)
 
     #expect(ini.global["key1"] == "")
     #expect(ini.global["key2"] == "value2")

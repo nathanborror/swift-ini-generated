@@ -26,13 +26,17 @@ public struct INIDecoder {
         /// Key-value separator characters (default: ["=", ":"])
         public var separatorCharacters: Set<Character>
 
+        /// Whether to allow array-style sections with just items (no key=value pairs) (default: true)
+        public var allowArraySections: Bool
+
         public init(
             commentCharacters: Set<Character> = [";", "#"],
             trimWhitespace: Bool = true,
             allowDuplicateKeys: Bool = true,
             parseQuotedValues: Bool = true,
             allowKeysWithoutValues: Bool = true,
-            separatorCharacters: Set<Character> = ["=", ":"]
+            separatorCharacters: Set<Character> = ["=", ":"],
+            allowArraySections: Bool = true
         ) {
             self.commentCharacters = commentCharacters
             self.trimWhitespace = trimWhitespace
@@ -40,6 +44,7 @@ public struct INIDecoder {
             self.parseQuotedValues = parseQuotedValues
             self.allowKeysWithoutValues = allowKeysWithoutValues
             self.separatorCharacters = separatorCharacters
+            self.allowArraySections = allowArraySections
         }
     }
 
@@ -83,6 +88,7 @@ public struct INIDecoder {
         var ini = INI()
         var currentSection = ""  // Empty string represents global section
         var seenKeys: [String: Set<String>] = [:]  // Track keys per section for duplicate detection
+        var sectionArrayItems: [String: [String]] = [:]  // Track array items per section
 
         let lines = string.components(separatedBy: .newlines)
 
@@ -120,23 +126,57 @@ public struct INIDecoder {
                 continue
             }
 
-            // Parse key-value pair
-            guard let (key, value) = try parseKeyValue(line: trimmedLine, lineNumber: lineNumber)
-            else {
+            // Try to parse as key-value pair
+            if let (key, value) = try parseKeyValue(line: trimmedLine, lineNumber: lineNumber) {
+                // Check if this looks like a URL or other non-key-value pattern
+                let looksLikeKeyValue = !isLikelyArrayItem(
+                    key: key, value: value, line: trimmedLine)
+
+                if options.allowArraySections && !looksLikeKeyValue {
+                    // Even though we parsed it as key-value, it's more likely an array item
+                    let item = stripInlineCommentFromArrayItem(trimmedLine)
+                    sectionArrayItems[currentSection, default: []].append(item)
+                } else {
+                    // Check for duplicate keys if not allowed
+                    if !options.allowDuplicateKeys {
+                        if seenKeys[currentSection]?.contains(key) == true {
+                            throw DecodingError.duplicateKey(
+                                section: currentSection, key: key, line: lineNumber)
+                        }
+                        seenKeys[currentSection, default: []].insert(key)
+                    }
+
+                    // Set the value
+                    ini[currentSection, key] = value
+                }
+            } else if options.allowArraySections {
+                // No separator found - treat as array item
+                let item = stripInlineCommentFromArrayItem(trimmedLine)
+                sectionArrayItems[currentSection, default: []].append(item)
+            } else {
                 throw DecodingError.invalidKeyValuePair(line: lineNumber, content: trimmedLine)
             }
+        }
 
-            // Check for duplicate keys if not allowed
-            if !options.allowDuplicateKeys {
-                if seenKeys[currentSection]?.contains(key) == true {
-                    throw DecodingError.duplicateKey(
-                        section: currentSection, key: key, line: lineNumber)
-                }
-                seenKeys[currentSection, default: []].insert(key)
+        // Convert sections with only array items to array sections
+        for (sectionName, items) in sectionArrayItems {
+            // Check if this section has any key-value pairs
+            let hasKeyValuePairs: Bool
+            if sectionName.isEmpty {
+                hasKeyValuePairs = !ini.global.isEmpty && ini.global.count > 0
+            } else {
+                hasKeyValuePairs = ini[sectionName]?.count ?? 0 > 0
             }
 
-            // Set the value
-            ini[currentSection, key] = value
+            // If section has no key-value pairs, convert to array section
+            if !hasKeyValuePairs {
+                let section = INI.Section(items)
+                if sectionName.isEmpty {
+                    ini.global = section
+                } else {
+                    ini[sectionName] = section
+                }
+            }
         }
 
         return ini
@@ -161,7 +201,9 @@ public struct INIDecoder {
             )
         else {
             // No separator found
-            if options.allowKeysWithoutValues {
+            // If array sections are enabled, let the caller handle it as an array item
+            // Otherwise, treat as key without value if that's allowed
+            if options.allowKeysWithoutValues && !options.allowArraySections {
                 let key =
                     options.trimWhitespace
                     ? line.trimmingCharacters(in: .whitespaces)
@@ -237,6 +279,66 @@ public struct INIDecoder {
         }
 
         return value
+    }
+
+    // Check if a parsed key-value pair is more likely an array item (like a URL)
+    private func isLikelyArrayItem(key: String, value: String, line: String) -> Bool {
+        // If the key looks like a URL protocol (short, lowercase, followed by ://)
+        let commonProtocols = ["http", "https", "ftp", "ftps", "ws", "wss", "file"]
+        if commonProtocols.contains(key.lowercased()) && value.hasPrefix("//") {
+            return true
+        }
+
+        return false
+    }
+
+    // Strip inline comments from array items (only if preceded by whitespace)
+    private func stripInlineCommentFromArrayItem(_ line: String) -> String {
+        var result = line
+
+        // Find comment character that's preceded by whitespace
+        for (index, char) in result.enumerated() {
+            if options.commentCharacters.contains(char) {
+                // Check if preceded by whitespace (or is at start of line)
+                if index == 0 {
+                    // Comment at start - return empty or handle as needed
+                    return ""
+                } else if index > 0
+                    && result[result.index(result.startIndex, offsetBy: index - 1)].isWhitespace
+                {
+                    // Found comment preceded by whitespace - strip from here
+                    result = String(result.prefix(index))
+                    if options.trimWhitespace {
+                        result = result.trimmingCharacters(in: .whitespaces)
+                    }
+                    break
+                }
+                // Otherwise, it's part of the data (like item;with;semicolons), so continue
+            }
+        }
+
+        return options.trimWhitespace ? result.trimmingCharacters(in: .whitespaces) : result
+    }
+
+    // Strip inline comments from a line
+    private func stripInlineComment(from line: String) -> String {
+        var result = line
+
+        // Find comment character not inside quotes
+        if let commentIndex = result.firstIndex(where: { options.commentCharacters.contains($0) }) {
+            let beforeComment = result[..<commentIndex]
+            let quoteCount = beforeComment.filter { $0 == "\"" || $0 == "'" }.count
+
+            // If even number of quotes, comment is outside quotes, strip it
+            if quoteCount % 2 == 0 {
+                result = String(beforeComment)
+                if options.trimWhitespace {
+                    result = result.trimmingCharacters(in: .whitespaces)
+                }
+            }
+        }
+
+        return result
     }
 }
 
