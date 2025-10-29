@@ -26,7 +26,7 @@ public struct INIEncoder {
         /// Whether to quote values that contain special characters (default: true)
         public var quoteSpecialValues: Bool
 
-        /// Characters that trigger quoting (default: [";", "#", "=", ":", "[", "]"])
+        /// Characters that trigger quoting (default: [";", "=", ":", "[", "]"])
         public var specialCharacters: Set<Character>
 
         /// Line ending style (default: .lf)
@@ -59,7 +59,7 @@ public struct INIEncoder {
             sortSections: Bool = true,
             sortKeys: Bool = true,
             quoteSpecialValues: Bool = true,
-            specialCharacters: Set<Character> = [";", "#", "=", ":", "[", "]"],
+            specialCharacters: Set<Character> = [";", "=", ":", "[", "]"],
             lineEnding: LineEnding = .lf,
             includeEmptyGlobalSection: Bool = false,
             includeEmptySections: Bool = false

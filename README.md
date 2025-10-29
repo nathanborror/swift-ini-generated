@@ -8,7 +8,7 @@ A Swift library for decoding and encoding INI configuration files with full supp
 - ✅ **Global and Named Sections**: Support for properties before any section and in named sections
 - ✅ **Array Sections**: Sections with just lists of items (no key=value pairs)
 - ✅ **Section Prefix Matching**: Retrieve all sections matching a prefix (great for git-style configs)
-- ✅ **Comments**: Support for both `;` and `#` comment styles
+- ✅ **Comments**: Support for `;` comment style (`;` only by default, but customizable)
 - ✅ **Quoted Values**: Handle quoted strings with escape sequences
 - ✅ **Flexible Separators**: Support for both `=` and `:` as key-value separators
 - ✅ **Custom Options**: Configurable encoding and decoding behavior
@@ -232,18 +232,26 @@ let ini: INI = [
 
 ### Comments
 
-Comments are automatically ignored during decoding:
+Comments are automatically ignored during decoding (`;` by default):
 
 ```swift
 let iniString = """
 ; This is a comment
 key1 = value1  ; inline comment
-# Another comment style
-key2 = value2  # inline comment
+key2 = value2
 """
 
 let ini = try INI(string: iniString)
 // Comments are stripped, only key-value pairs remain
+```
+
+**Note:** By default, only semicolon (`;`) is treated as a comment character. Hash (`#`) is now treated as a valid value character, so you can use values like `channel = #general`. If you need `#` to be a comment character, you can customize it:
+
+```swift
+var options = INIDecoder.Options()
+options.commentCharacters = [";", "#"]  // Enable both comment styles
+
+let ini = try INI(string: iniString, options: options)
 ```
 
 ### Quoted Values
@@ -279,7 +287,7 @@ Customize the decoder behavior:
 
 ```swift
 var options = INIDecoder.Options()
-options.commentCharacters = [";", "#"]
+options.commentCharacters = [";"]  // Default is [";"]
 options.trimWhitespace = true
 options.allowDuplicateKeys = false  // Throw error on duplicates
 options.parseQuotedValues = true
@@ -294,7 +302,7 @@ let ini = try decoder.decode(iniString)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `commentCharacters` | `Set<Character>` | `[";", "#"]` | Characters that indicate comment lines |
+| `commentCharacters` | `Set<Character>` | `[";"]` | Characters that indicate comment lines |
 | `trimWhitespace` | `Bool` | `true` | Trim whitespace from keys and values |
 | `allowDuplicateKeys` | `Bool` | `true` | Allow duplicate keys (last one wins) |
 | `parseQuotedValues` | `Bool` | `true` | Parse quoted values and escape sequences |
@@ -329,7 +337,7 @@ let encoded = encoder.encode(ini)
 | `sortSections` | `Bool` | `true` | Sort section names alphabetically |
 | `sortKeys` | `Bool` | `true` | Sort keys within sections |
 | `quoteSpecialValues` | `Bool` | `true` | Quote values with special characters |
-| `specialCharacters` | `Set<Character>` | `[";", "#", "=", ":", "[", "]"]` | Characters that trigger quoting |
+| `specialCharacters` | `Set<Character>` | `[";", "=", ":", "[", "]"]` | Characters that trigger quoting |
 | `lineEnding` | `LineEnding` | `.lf` | Line ending style (`.lf`, `.crlf`, `.cr`) |
 | `includeEmptyGlobalSection` | `Bool` | `false` | Include global section if empty |
 | `includeEmptySections` | `Bool` | `false` | Include empty sections |

@@ -8,7 +8,7 @@ public struct INIDecoder {
 
     /// Options for decoding INI files
     public struct Options: Sendable {
-        /// Characters that indicate a comment line (default: [";", "#"])
+        /// Characters that indicate a comment line (default: [";"])
         public var commentCharacters: Set<Character>
 
         /// Whether to trim whitespace from keys and values (default: true)
@@ -30,7 +30,7 @@ public struct INIDecoder {
         public var allowArraySections: Bool
 
         public init(
-            commentCharacters: Set<Character> = [";", "#"],
+            commentCharacters: Set<Character> = [";"],
             trimWhitespace: Bool = true,
             allowDuplicateKeys: Bool = true,
             parseQuotedValues: Bool = true,

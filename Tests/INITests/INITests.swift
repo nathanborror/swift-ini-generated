@@ -80,7 +80,7 @@ import Testing
     let iniString = """
         ; This is a comment
         key1 = value1
-        # This is also a comment
+        ; This is also a comment
         key2 = value2
 
         [section1]
@@ -98,7 +98,7 @@ import Testing
 @Test func decodeWithInlineComments() throws {
     let iniString = """
         key1 = value1 ; inline comment
-        key2 = value2 # another inline comment
+        key2 = value2 ; another inline comment
         """
 
     let ini = try INI(string: iniString)
@@ -294,9 +294,9 @@ import Testing
 
     let encoded = ini.encode()
 
-    // Values with special characters should be quoted
+    // Values with special characters should be quoted (# is not a special character)
     #expect(encoded.contains("\"value with ; semicolon\""))
-    #expect(encoded.contains("\"value with # hash\""))
+    #expect(encoded.contains("value with # hash"))
     #expect(encoded.contains("\"value with = equals\""))
 }
 

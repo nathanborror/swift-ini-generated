@@ -113,7 +113,7 @@ import Testing
         [allowed_ips]
         ; This is a comment
         192.168.1.1
-        # Another comment
+        ; Another comment
         192.168.1.2
         192.168.1.3  ; inline comment
         """
