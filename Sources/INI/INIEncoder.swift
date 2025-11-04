@@ -161,6 +161,9 @@ public struct INIEncoder {
         let items = options.sortKeys ? section.items : Array(section.items)
 
         for item in items {
+            // Skip properties with empty string values
+            guard !item.value.isEmpty else { continue }
+
             let encodedValue = encodeValue(item.value)
             result += "\(item.key)\(options.separator)\(encodedValue)" + nl
         }
