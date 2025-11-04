@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "INI",
+    name: "swift-ini-generated",
     platforms: [
         .iOS(.v18),
         .macOS(.v15),
